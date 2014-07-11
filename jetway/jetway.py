@@ -1,8 +1,11 @@
 import base64
 import json
+import logging
 import md5
 import mimetypes
+import os
 import requests
+import threading
 
 
 class Error(Exception):
@@ -25,19 +28,65 @@ class RpcError(Error):
 
 class Jetway(object):
 
-  def __init__(self, host):
+  def __init__(self, host, secure=False):
     self.host = host
+    self.scheme = 'https' if secure else 'http'
+    self.gs = GoogleStorageSigningSession()
 
   def rpc(self, path, body=None):
     if body is None:
       body = {}
     headers = {'Content-Type': 'application/json'}
-    url = 'http://{}/_api/{}'.format(self.host, path)
+    url = '{}://{}/_api/{}'.format(self.scheme, self.host, path)
     resp = requests.post(url, data=json.dumps(body), headers=headers)
     if not (resp.status_code >= 200 and resp.status_code < 205):
       data = resp.json()
       raise RpcError(resp.status_code, data=data)
     return resp.json()
+
+  def upload(self, build_dir):
+    fileset = {
+        'name': 'test',
+        'project': {'ident': '5066549580791808'},
+    }
+    print build_dir
+    paths_to_contents = Jetway._get_paths_to_contents_from_build(build_dir)
+    print paths_to_contents
+    req = self.gs.create_sign_requests_request(fileset, paths_to_contents)
+    resp = self.rpc('filesets.sign_requests', req)
+    self._upload_build(resp['signed_requests'], paths_to_contents)
+
+  def _upload_build(self, signed_requests, paths_to_contents):
+     # TODO(jeremydw): Thread pool.
+     print 'Uploading files...'
+     threads = []
+     for req in signed_requests:
+       file_path = req['path']
+       thread = threading.Thread(
+           target=self.gs.execute_signed_upload,
+           args=(req, paths_to_contents[file_path]))
+       threads.append(thread)
+       logging.info('Uploading: {}'.format(file_path))
+       thread.start()
+     for thread in threads:
+       thread.join()
+
+  @classmethod
+  def _get_paths_to_contents_from_build(cls, build_dir):
+    paths_to_contents = {}
+    for pre, _, files in os.walk(build_dir):
+      for f in files:
+        path = os.path.join(pre, f)
+        fp = open(path)
+        path = path.replace(build_dir, '')
+        if not path.startswith('/'):
+          path = '/{}'.format(path)
+        content = fp.read()
+        fp.close()
+        if isinstance(content, unicode):
+          content = content.encode('utf-8')
+        paths_to_contents[path] = content
+    return paths_to_contents
 
 
 class GoogleStorageSigningSession(object):
