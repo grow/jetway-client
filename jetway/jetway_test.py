@@ -19,7 +19,11 @@ class JetwayTestCase(unittest.TestCase):
             },
         },
     }
-    client = jetway.Jetway('jetway.dev.example.com:8080')
+    client = jetway.Jetway(
+        project='user@example.com/test',
+        name='test',
+        host='grow-prod.appspot.com',
+        secure=True,)
     resp = client.upload(TEST_BUILD_DIR)
 #    resp = client.rpc('filesets.create', req)
 #    print resp

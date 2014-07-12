@@ -28,7 +28,9 @@ class RpcError(Error):
 
 class Jetway(object):
 
-  def __init__(self, host, secure=False):
+  def __init__(self, project, name, host, secure=False):
+    self.owner, self.nickname = project.split('/')
+    self.name = name
     self.host = host
     self.scheme = 'https' if secure else 'http'
     self.gs = GoogleStorageSigningSession()
@@ -46,14 +48,14 @@ class Jetway(object):
 
   def upload(self, build_dir):
     fileset = {
-        'name': 'test',
-        'project': {'ident': '5066549580791808'},
+        'name': self.name,
+        'project': {'ident': '5690091590647808'},
     }
-    print build_dir
     paths_to_contents = Jetway._get_paths_to_contents_from_build(build_dir)
     print paths_to_contents
     req = self.gs.create_sign_requests_request(fileset, paths_to_contents)
     resp = self.rpc('filesets.sign_requests', req)
+    print resp
     self._upload_build(resp['signed_requests'], paths_to_contents)
 
   def _upload_build(self, signed_requests, paths_to_contents):
