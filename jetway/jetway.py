@@ -7,6 +7,9 @@ import os
 import requests
 import threading
 
+requests_logger = logging.getLogger('requests')
+requests_logger.setLevel(logging.WARNING)
+
 
 class Error(Exception):
   pass
@@ -93,7 +96,6 @@ class Jetway(object):
     lock = threading.Lock()  # TODO(jeremydw): Thread pool.
 
     def _execute_signed_request(req, path, content):
-      logging.info('Working: {}'.format(path))
       with lock:
         try:
           resps[path] = self.gs.execute_signed_request(req, content)
