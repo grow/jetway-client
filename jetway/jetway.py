@@ -12,28 +12,47 @@ class Error(Exception):
   pass
 
 
+class Verb(object):
+  GET = 'GET'
+  PUT = 'PUT'
+  DELETE = 'DELETE'
+
+
 class RpcError(Error):
 
-  def __init__(self, status, data):
+  def __init__(self, status, message=None, data=None):
     self.status = status
-    self.text = data['error_message']
+    self.message = data['error_message'] if data else message
     self.data = data
 
   def __str__(self):
-    return self.text
+    return self.message
 
   def __getitem__(self, name):
     return self.data[name]
 
 
+class GoogleStorageRpcError(RpcError):
+  pass
+
+
 class Jetway(object):
 
   def __init__(self, project, name, host, secure=False):
-    self.owner, self.nickname = project.split('/')
+    if '/' not in project:
+      raise ValueError('Project must be in format: <owner>/<project>')
+    self.owner, self.project = project.split('/')
     self.name = name
     self.host = host
     self.scheme = 'https' if secure else 'http'
-    self.gs = GoogleStorageSigningSession()
+    self.gs = GoogleStorageSigner()
+
+  @property
+  def fileset(self):
+    return {
+        'name': self.name,
+        'project': {'owner': {'nickname': self.owner}, 'nickname': self.project},
+    }
 
   def rpc(self, path, body=None):
     if body is None:
@@ -46,35 +65,55 @@ class Jetway(object):
       raise RpcError(resp.status_code, data=data)
     return resp.json()
 
-  def upload(self, build_dir):
-    fileset = {
-        'name': self.name,
-        'project': {'ident': '5690091590647808'},
-    }
-    paths_to_contents = Jetway._get_paths_to_contents_from_build(build_dir)
-    print paths_to_contents
-    req = self.gs.create_sign_requests_request(fileset, paths_to_contents)
-    resp = self.rpc('filesets.sign_requests', req)
-    print resp
-    self._upload_build(resp['signed_requests'], paths_to_contents)
+  def upload_dir(self, build_dir):
+    paths_to_contents = Jetway._get_paths_to_contents_from_dir(build_dir)
+    return self.write(paths_to_contents)
 
-  def _upload_build(self, signed_requests, paths_to_contents):
-     # TODO(jeremydw): Thread pool.
-     print 'Uploading files...'
-     threads = []
-     for req in signed_requests:
-       file_path = req['path']
-       thread = threading.Thread(
-           target=self.gs.execute_signed_upload,
-           args=(req, paths_to_contents[file_path]))
-       threads.append(thread)
-       logging.info('Uploading: {}'.format(file_path))
-       thread.start()
-     for thread in threads:
-       thread.join()
+  def delete(self, paths):
+    paths_to_contents = dict([(path, None) for path in paths])
+    req = self.gs.create_sign_requests_request(Verb.DELETE, self.fileset, paths_to_contents)
+    resp = self.rpc('filesets.sign_requests', req)
+    return self._execute_signed_requests(resp['signed_requests'], paths_to_contents)
+
+  def read(self, paths):
+    paths_to_contents = dict([(path, None) for path in paths])
+    req = self.gs.create_sign_requests_request(Verb.GET, self.fileset, paths_to_contents)
+    resp = self.rpc('filesets.sign_requests', req)
+    return self._execute_signed_requests(resp['signed_requests'], paths_to_contents)
+
+  def write(self, paths_to_contents):
+    req = self.gs.create_sign_requests_request(Verb.PUT, self.fileset, paths_to_contents)
+    resp = self.rpc('filesets.sign_requests', req)
+    return self._execute_signed_requests(resp['signed_requests'], paths_to_contents)
+
+  def _execute_signed_requests(self, signed_requests, paths_to_contents):
+    resps = {}
+    errors = {}
+    threads = []
+    lock = threading.Lock()  # TODO(jeremydw): Thread pool.
+
+    def _execute_signed_request(req, path, content):
+      logging.info('Working: {}'.format(path))
+      with lock:
+        try:
+          resps[path] = self.gs.execute_signed_request(req, content)
+        except GoogleStorageRpcError as e:
+          errors[path] = e
+
+    for req in signed_requests:
+      path = req['path']
+      thread = threading.Thread(target=_execute_signed_request,
+                                args=(req, path, paths_to_contents[path]))
+      thread.start()
+      threads.append(thread)
+
+    for thread in threads:
+      thread.join()
+
+    return resps, errors
 
   @classmethod
-  def _get_paths_to_contents_from_build(cls, build_dir):
+  def _get_paths_to_contents_from_dir(cls, build_dir):
     paths_to_contents = {}
     for pre, _, files in os.walk(build_dir):
       for f in files:
@@ -91,7 +130,7 @@ class Jetway(object):
     return paths_to_contents
 
 
-class GoogleStorageSigningSession(object):
+class GoogleStorageSigner(object):
 
   @staticmethod
   def create_unsigned_request(verb, path, content=None):
@@ -99,7 +138,7 @@ class GoogleStorageSigningSession(object):
       'path': path,
       'verb': verb,
     }
-    if verb == 'PUT':
+    if verb == Verb.PUT:
       if path.endswith('/'):
         mimetype = 'text/html'
       else:
@@ -112,10 +151,10 @@ class GoogleStorageSigningSession(object):
       req['headers']['content_type'] = mimetype
     return req
 
-  def create_sign_requests_request(self, fileset, paths_to_contents):
+  def create_sign_requests_request(self, verb, fileset, paths_to_contents):
     unsigned_requests = []
     for path, content in paths_to_contents.iteritems():
-      req = self.create_unsigned_request('PUT', path, content)
+      req = self.create_unsigned_request(verb, path, content)
       unsigned_requests.append(req)
     return {
         'fileset': fileset,
@@ -123,19 +162,29 @@ class GoogleStorageSigningSession(object):
     }
 
   @staticmethod
-  def execute_signed_upload(signed_request, content):
+  def execute_signed_request(signed_request, content=None):
     req = signed_request
     params = {
         'GoogleAccessId': req['params']['google_access_id'],
         'Signature': req['params']['signature'],
         'Expires': req['params']['expires'],
     }
-    headers = {
-        'Content-Type': req['headers']['content_type'],
-        'Content-MD5': req['headers']['content_md5'],
-        'Content-Length': req['headers']['content_length'],
-    }
-    resp = requests.put(req['url'], params=params, headers=headers, data=content)
+
+    if signed_request['verb'] == Verb.PUT:
+      headers = {
+          'Content-Type': req['headers']['content_type'],
+          'Content-MD5': req['headers']['content_md5'],
+          'Content-Length': req['headers']['content_length'],
+      }
+      resp = requests.put(req['url'], params=params, headers=headers, data=content)
+
+    elif signed_request['verb'] == Verb.GET:
+      resp = requests.get(req['url'], params=params)
+
+    elif signed_request['verb'] == Verb.DELETE:
+      resp = requests.delete(req['url'], params=params)
+
     if not (resp.status_code >= 200 and resp.status_code < 205):
-      raise Exception(resp.text)
-    return resp
+      raise GoogleStorageRpcError(resp.status_code, message=resp.content)
+
+    return resp.content
