@@ -4,6 +4,7 @@ import logging
 import md5
 import mimetypes
 import os
+import progressbar
 import requests
 import threading
 
@@ -39,9 +40,22 @@ class GoogleStorageRpcError(RpcError):
   pass
 
 
+class ProgressBarThread(threading.Thread):
+
+  def __init__(self, bar, enabled, *args, **kwargs):
+    self.bar = bar
+    self.enabled = enabled
+    super(ProgressBarThread, self).__init__(*args, **kwargs)
+
+  def run(self):
+    super(ProgressBarThread, self).run()
+    if self.enabled:
+      self.bar.update(self.bar.currval + 1)
+
+
 class Jetway(object):
 
-  def __init__(self, project, name, host, secure=False):
+  def __init__(self, project, name, host, secure=False, bar_enabled=True):
     if '/' not in project:
       raise ValueError('Project must be in format: <owner>/<project>')
     self.owner, self.project = project.split('/')
@@ -49,6 +63,7 @@ class Jetway(object):
     self.host = host
     self.scheme = 'https' if secure else 'http'
     self.gs = GoogleStorageSigner()
+    self.bar_enabled = bar_enabled
 
   @property
   def fileset(self):
@@ -95,6 +110,13 @@ class Jetway(object):
     threads = []
     lock = threading.Lock()  # TODO(jeremydw): Thread pool.
 
+    num_files = len(signed_requests)
+    text = 'Working: %(value)d/{} (in %(elapsed)s)'
+    widgets = [progressbar.FormatLabel(text.format(num_files))]
+    bar = progressbar.ProgressBar(widgets=widgets, maxval=num_files)
+    if self.bar_enabled:
+      bar.start()
+
     def _execute_signed_request(req, path, content):
       with lock:
         try:
@@ -104,13 +126,17 @@ class Jetway(object):
 
     for req in signed_requests:
       path = req['path']
-      thread = threading.Thread(target=_execute_signed_request,
-                                args=(req, path, paths_to_contents[path]))
+      thread = ProgressBarThread(bar, self.bar_enabled,
+                                 target=_execute_signed_request,
+                                 args=(req, path, paths_to_contents[path]))
       thread.start()
       threads.append(thread)
 
     for thread in threads:
       thread.join()
+
+    if self.bar_enabled:
+      bar.finish()
 
     return resps, errors
 
