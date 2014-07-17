@@ -118,10 +118,17 @@ class Jetway(object):
       bar.start()
 
     def _execute_signed_request(req, path, content):
+      error = None
+      resp = None
+      try:
+        resp = self.gs.execute_signed_request(req, content)
+      except GoogleStorageRpcError as e:
+        error = e
+
       with lock:
-        try:
-          resps[path] = self.gs.execute_signed_request(req, content)
-        except GoogleStorageRpcError as e:
+        if resp is not None:
+          resps[path] = resp
+        if error is not None:
           errors[path] = e
 
     for req in signed_requests:
