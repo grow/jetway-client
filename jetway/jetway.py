@@ -49,9 +49,7 @@ class Jetway(object):
         'name': 'test',
         'project': {'ident': '5066549580791808'},
     }
-    print build_dir
     paths_to_contents = Jetway._get_paths_to_contents_from_build(build_dir)
-    print paths_to_contents
     req = self.gs.create_sign_requests_request(fileset, paths_to_contents)
     resp = self.rpc('filesets.sign_requests', req)
     self._upload_build(resp['signed_requests'], paths_to_contents)
