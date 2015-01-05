@@ -9,7 +9,7 @@ setup(
     name='jetway',
     version=open('VERSION').read().strip(),
     description=(
-          'Client library for the Jetway static site staging service.'
+        'Client library for the Jetway static site staging service.'
     ),
     url='https://github.com/grow/jetway-client',
     license='MIT',
