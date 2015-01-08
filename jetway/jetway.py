@@ -36,7 +36,7 @@ class RpcError(Error):
     return self.data[name]
 
 
-class GoogleStorageRpcError(RpcError):
+class GoogleStorageRpcError(RpcError, IOError):
   pass
 
 
