@@ -9,6 +9,11 @@ TEST_BUILD_DIR = os.path.join(
 
 class JetwayTestCase(unittest.TestCase):
 
+  def test_exception(self):
+    def raise_error():
+      raise jetway.GoogleStorageRpcError(403, 'Forbidden.')
+    self.assertRaises(jetway.GoogleStorageRpcError, raise_error)
+
   def test_client(self):
     self.assertRaises(ValueError, jetway.Jetway, 'foo', 'bar', 'baz')
 

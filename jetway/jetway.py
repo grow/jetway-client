@@ -1,3 +1,4 @@
+from multiprocessing import pool
 import base64
 import json
 import logging
@@ -40,20 +41,8 @@ class GoogleStorageRpcError(RpcError, IOError):
   pass
 
 
-class ProgressBarThread(threading.Thread):
-
-  def __init__(self, bar, enabled, *args, **kwargs):
-    self.bar = bar
-    self.enabled = enabled
-    super(ProgressBarThread, self).__init__(*args, **kwargs)
-
-  def run(self):
-    super(ProgressBarThread, self).run()
-    if self.enabled:
-      self.bar.update(self.bar.currval + 1)
-
-
 class Jetway(object):
+  _pool_size = 10
 
   def __init__(self, project, name, host, secure=False, bar_enabled=True):
     if '/' not in project:
@@ -64,6 +53,8 @@ class Jetway(object):
     self.scheme = 'https' if secure else 'http'
     self.gs = GoogleStorageSigner()
     self.bar_enabled = bar_enabled
+    self.lock = threading.Lock()
+    self.pool = pool.ThreadPool(processes=self._pool_size)
 
   @property
   def fileset(self):
@@ -104,47 +95,42 @@ class Jetway(object):
     resp = self.rpc('filesets.sign_requests', req)
     return self._execute_signed_requests(resp['signed_requests'], paths_to_contents)
 
+  def _execute(self, req, path, content, bar, resps, errors):
+    error = None
+    resp = None
+    try:
+      resp = self.gs.execute_signed_request(req, content)
+    except GoogleStorageRpcError as e:
+      error = e
+    with self.lock:
+      if resp is not None:
+        resps[path] = resp
+      if error is not None:
+        errors[path] = e
+    if bar and self.bar_enabled:
+      bar.update(bar.currval + 1)
+
   def _execute_signed_requests(self, signed_requests, paths_to_contents):
+    self.pool = pool.ThreadPool(processes=self._pool_size)
     resps = {}
     errors = {}
-    threads = []
-    lock = threading.Lock()  # TODO(jeremydw): Thread pool.
-
     num_files = len(signed_requests)
     text = 'Working: %(value)d/{} (in %(elapsed)s)'
     widgets = [progressbar.FormatLabel(text.format(num_files))]
-    bar = progressbar.ProgressBar(widgets=widgets, maxval=num_files)
-    if self.bar_enabled:
+    if num_files > 1:
+      bar = progressbar.ProgressBar(widgets=widgets, maxval=num_files)
       bar.start()
-
-    def _execute_signed_request(req, path, content):
-      error = None
-      resp = None
-      try:
-        resp = self.gs.execute_signed_request(req, content)
-      except GoogleStorageRpcError as e:
-        error = e
-
-      with lock:
-        if resp is not None:
-          resps[path] = resp
-        if error is not None:
-          errors[path] = e
-
-    for req in signed_requests:
-      path = req['path']
-      thread = ProgressBarThread(bar, self.bar_enabled,
-                                 target=_execute_signed_request,
-                                 args=(req, path, paths_to_contents[path]))
-      thread.start()
-      threads.append(thread)
-
-    for thread in threads:
-      thread.join()
-
-    if self.bar_enabled:
+      for req in signed_requests:
+        path = req['path']
+        args = (req, path, paths_to_contents[path], bar, resps, errors)
+        self.pool.apply_async(self._execute, args=args)
+      self.pool.close()
+      self.pool.join()
       bar.finish()
-
+    else:
+      req = signed_requests[0]
+      path = req['path']
+      self._execute(req, path, paths_to_contents[path], None, resps, errors)
     return resps, errors
 
   @classmethod
