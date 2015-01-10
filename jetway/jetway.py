@@ -16,11 +16,11 @@ import threading
 # Google API details for a native/installed application for API project grow-prod.
 CLIENT_ID = '578372381550-jfl3hdlf1q5rgib94pqsctv1kgkflu1a.apps.googleusercontent.com'
 CLIENT_SECRET = 'XQKqbwTg88XVpaBNRcm_tYLf'  # Not so secret for installed apps.
+REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
 OAUTH_SCOPES = [
     'https://www.googleapis.com/auth/plus.me',
     'https://www.googleapis.com/auth/userinfo.email',
 ]
-REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
 
 requests_logger = logging.getLogger('requests')
 requests_logger.setLevel(logging.WARNING)
