@@ -1,6 +1,10 @@
+from apiclient import discovery
 from multiprocessing import pool
+from oauth2client import client
+from oauth2client import keyring_storage
+from oauth2client import tools
 import base64
-import json
+import httplib2
 import logging
 import md5
 import mimetypes
@@ -8,6 +12,15 @@ import os
 import progressbar
 import requests
 import threading
+
+# Google API details for a native/installed application for API project grow-prod.
+CLIENT_ID = '578372381550-jfl3hdlf1q5rgib94pqsctv1kgkflu1a.apps.googleusercontent.com'
+CLIENT_SECRET = 'XQKqbwTg88XVpaBNRcm_tYLf'  # Not so secret for installed apps.
+OAUTH_SCOPES = [
+    'https://www.googleapis.com/auth/plus.me',
+    'https://www.googleapis.com/auth/userinfo.email',
+]
+REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
 
 requests_logger = logging.getLogger('requests')
 requests_logger.setLevel(logging.WARNING)
@@ -44,17 +57,18 @@ class GoogleStorageRpcError(RpcError, IOError):
 class Jetway(object):
   _pool_size = 10
 
-  def __init__(self, project, name, host, secure=False, bar_enabled=True):
+  def __init__(self, project, name, host, secure=False, api='jetway', version='v0'):
     if '/' not in project:
       raise ValueError('Project must be in format: <owner>/<project>')
     self.owner, self.project = project.split('/')
     self.name = name
-    self.host = host
-    self.scheme = 'https' if secure else 'http'
     self.gs = GoogleStorageSigner()
-    self.bar_enabled = bar_enabled
     self.lock = threading.Lock()
     self.pool = pool.ThreadPool(processes=self._pool_size)
+    root = '{}://{}/_ah/api'.format('https' if secure else 'http', host)
+    self._api = api
+    self._version = version
+    self._url = '{}/discovery/v1/apis/{}/{}/rest'.format(root, api, version)
 
   @property
   def fileset(self):
@@ -63,16 +77,27 @@ class Jetway(object):
         'project': {'owner': {'nickname': self.owner}, 'nickname': self.project},
     }
 
-  def rpc(self, path, body=None):
-    if body is None:
-      body = {}
-    headers = {'Content-Type': 'application/json'}
-    url = '{}://{}/_api/{}'.format(self.scheme, self.host, path)
-    resp = requests.post(url, data=json.dumps(body), headers=headers)
-    if not (resp.status_code >= 200 and resp.status_code < 205):
-      data = resp.json()
-      raise RpcError(resp.status_code, data=data)
-    return resp.json()
+  def sign_in(self, username='default'):
+    credentials = Jetway.get_credentials(username)
+    http = httplib2.Http()
+    http = credentials.authorize(http)
+    self.service = discovery.build(
+        self._api,
+        self._version,
+        discoveryServiceUrl=self._url,
+        http=http)
+
+  @staticmethod
+  def get_credentials(username):
+    storage = keyring_storage.Storage('Grow SDK - Jetway', username)
+    credentials = storage.get()
+    if credentials is None or credentials.invalid:
+      parser = tools.argparser
+      flags, _ = parser.parse_known_args()
+      flow = client.OAuth2WebServerFlow(CLIENT_ID, CLIENT_SECRET, OAUTH_SCOPES,
+                                        redirect_uri=REDIRECT_URI)
+      credentials = tools.run_flow(flow, storage, flags)
+    return credentials
 
   def upload_dir(self, build_dir):
     paths_to_contents = Jetway._get_paths_to_contents_from_dir(build_dir)
@@ -81,18 +106,18 @@ class Jetway(object):
   def delete(self, paths):
     paths_to_contents = dict([(path, None) for path in paths])
     req = self.gs.create_sign_requests_request(Verb.DELETE, self.fileset, paths_to_contents)
-    resp = self.rpc('filesets.sign_requests', req)
+    resp = self.service.sign_requests(body=req).execute()
     return self._execute_signed_requests(resp['signed_requests'], paths_to_contents)
 
   def read(self, paths):
     paths_to_contents = dict([(path, None) for path in paths])
     req = self.gs.create_sign_requests_request(Verb.GET, self.fileset, paths_to_contents)
-    resp = self.rpc('filesets.sign_requests', req)
+    resp = self.service.sign_requests(body=req).execute()
     return self._execute_signed_requests(resp['signed_requests'], paths_to_contents)
 
   def write(self, paths_to_contents):
     req = self.gs.create_sign_requests_request(Verb.PUT, self.fileset, paths_to_contents)
-    resp = self.rpc('filesets.sign_requests', req)
+    resp = self.service.sign_requests(body=req).execute()
     return self._execute_signed_requests(resp['signed_requests'], paths_to_contents)
 
   def _execute(self, req, path, content, bar, resps, errors):
@@ -107,7 +132,7 @@ class Jetway(object):
         resps[path] = resp
       if error is not None:
         errors[path] = e
-    if bar and self.bar_enabled:
+    if bar is not None:
       bar.update(bar.currval + 1)
 
   def _execute_signed_requests(self, signed_requests, paths_to_contents):

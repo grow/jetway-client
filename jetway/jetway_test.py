@@ -22,6 +22,7 @@ class JetwayTestCase(unittest.TestCase):
         name='test-staging-site',
         host='grow-prod.appspot.com',
         secure=True,)
+    client.sign_in()
 
     # Upload directory.
     paths_written, errors = client.upload_dir(TEST_BUILD_DIR)
