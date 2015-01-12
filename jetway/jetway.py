@@ -77,7 +77,7 @@ class Jetway(object):
         'project': {'owner': {'nickname': self.owner}, 'nickname': self.project},
     }
 
-  def sign_in(self, username='default'):
+  def login(self, username='default'):
     credentials = Jetway.get_credentials(username)
     http = httplib2.Http()
     http = credentials.authorize(http)
