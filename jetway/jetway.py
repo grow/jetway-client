@@ -77,8 +77,8 @@ class Jetway(object):
         'project': {'owner': {'nickname': self.owner}, 'nickname': self.project},
     }
 
-  def login(self, username='default'):
-    credentials = Jetway.get_credentials(username)
+  def login(self, username='default', reauth=False):
+    credentials = Jetway.get_credentials(username, reauth=reauth)
     http = httplib2.Http()
     http = credentials.authorize(http)
     self.service = discovery.build(
@@ -88,10 +88,10 @@ class Jetway(object):
         http=http)
 
   @staticmethod
-  def get_credentials(username):
+  def get_credentials(username, reauth=False):
     storage = keyring_storage.Storage('Grow SDK - Jetway', username)
     credentials = storage.get()
-    if credentials is None or credentials.invalid:
+    if credentials is None or reauth or credentials.invalid:
       parser = tools.argparser
       flags, _ = parser.parse_known_args()
       flow = client.OAuth2WebServerFlow(CLIENT_ID, CLIENT_SECRET, OAUTH_SCOPES,
