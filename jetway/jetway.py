@@ -1,4 +1,5 @@
-from apiclient import discovery
+from googleapiclient import discovery
+from googleapiclient import errors
 from multiprocessing import pool
 from oauth2client import client
 from oauth2client import keyring_storage
@@ -48,6 +49,10 @@ class RpcError(Error):
 
   def __getitem__(self, name):
     return self.data[name]
+
+
+class JetwayRpcError(RpcError):
+  pass
 
 
 class GoogleStorageRpcError(RpcError, IOError):
@@ -106,18 +111,27 @@ class Jetway(object):
   def delete(self, paths):
     paths_to_contents = dict([(path, None) for path in paths])
     req = self.gs.create_sign_requests_request(Verb.DELETE, self.fileset, paths_to_contents)
-    resp = self.service.sign_requests(body=req).execute()
+    try:
+      resp = self.service.sign_requests(body=req).execute()
+    except errors.HttpError as e:
+      raise JetwayRpcError(e.resp.status, e._get_reason().strip())
     return self._execute_signed_requests(resp['signed_requests'], paths_to_contents)
 
   def read(self, paths):
     paths_to_contents = dict([(path, None) for path in paths])
     req = self.gs.create_sign_requests_request(Verb.GET, self.fileset, paths_to_contents)
-    resp = self.service.sign_requests(body=req).execute()
+    try:
+      resp = self.service.sign_requests(body=req).execute()
+    except errors.HttpError as e:
+      raise JetwayRpcError(e.resp.status, e._get_reason().strip())
     return self._execute_signed_requests(resp['signed_requests'], paths_to_contents)
 
   def write(self, paths_to_contents):
     req = self.gs.create_sign_requests_request(Verb.PUT, self.fileset, paths_to_contents)
-    resp = self.service.sign_requests(body=req).execute()
+    try:
+      resp = self.service.sign_requests(body=req).execute()
+    except errors.HttpError as e:
+      raise JetwayRpcError(e.resp.status, e._get_reason().strip())
     return self._execute_signed_requests(resp['signed_requests'], paths_to_contents)
 
   def _execute(self, req, path, content, bar, resps, errors):
