@@ -62,7 +62,8 @@ class GoogleStorageRpcError(RpcError, IOError):
 class Jetway(object):
   _pool_size = 10
 
-  def __init__(self, project, name, host, secure=False, api='jetway', version='v0'):
+  def __init__(self, project, name, host, secure=False, username='default',
+               api='jetway', version='v0'):
     if '/' not in project:
       raise ValueError('Project must be in format: <owner>/<project>')
     self.owner, self.project = project.split('/')
@@ -74,6 +75,7 @@ class Jetway(object):
     self._api = api
     self._version = version
     self._url = '{}/discovery/v1/apis/{}/{}/rest'.format(root, api, version)
+    self._service = None
 
   @property
   def fileset(self):
@@ -82,23 +84,35 @@ class Jetway(object):
         'project': {'owner': {'nickname': self.owner}, 'nickname': self.project},
     }
 
-  def login(self, username='default', reauth=False):
-    credentials = Jetway.get_credentials(username, reauth=reauth)
+  def get_service(self, username='default', reauth=False):
+    credentials = Jetway.get_credentials(username=username, reauth=reauth)
     http = httplib2.Http()
     http = credentials.authorize(http)
-    self.service = discovery.build(
+    return discovery.build(
         self._api,
         self._version,
         discoveryServiceUrl=self._url,
         http=http)
 
+  def login(self, username='default', reauth=False):
+    self._service = self.get_service(username=username, reauth=reauth)
+
+  @property
+  def service(self):
+    if self._service is not None:
+      return self._service
+    self._service = self.get_service()
+    return self._service
+
   @staticmethod
   def get_credentials(username, reauth=False):
     storage = keyring_storage.Storage('Grow SDK - Jetway', username)
     credentials = storage.get()
-    if credentials is None or reauth or credentials.invalid:
+    if credentials and not credentials.invalid:
+      return credentials
+    if credentials is None or reauth:
       parser = tools.argparser
-      flags, _ = parser.parse_known_args()
+      flags, _ = parser.parse_known_args([])
       flow = client.OAuth2WebServerFlow(CLIENT_ID, CLIENT_SECRET, OAUTH_SCOPES,
                                         redirect_uri=REDIRECT_URI)
       credentials = tools.run_flow(flow, storage, flags)
