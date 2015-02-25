@@ -87,7 +87,7 @@ class Jetway(object):
   def get_service(self, username='default', reauth=False):
     credentials = Jetway.get_credentials(username=username, reauth=reauth)
     http = httplib2.Http()
-    http = credentials.authorize(http)
+    credentials.authorize(http)
     return discovery.build(
         self._api,
         self._version,
