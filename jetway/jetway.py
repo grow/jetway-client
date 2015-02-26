@@ -88,6 +88,8 @@ class Jetway(object):
     credentials = Jetway.get_credentials(username=username, reauth=reauth)
     http = httplib2.Http()
     credentials.authorize(http)
+    if credentials.access_token_expired:
+      credentials.refresh(http)
     return discovery.build(
         self._api,
         self._version,
