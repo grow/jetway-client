@@ -1,15 +1,17 @@
 import uuid
+import os
 from setuptools import find_packages
 from setuptools import setup
 from pip import req
 
+_here = os.path.dirname(__file__)
 _install_requirements = req.parse_requirements(
     'requirements.txt', session=uuid.uuid1())
 
 
 setup(
     name='jetway',
-    version=open('jetway/VERSION').read().strip(),
+    version=open(os.path.join(_here, 'jetway', 'VERSION')).read().strip(),
     description=(
         'Client library for the Jetway static site staging service.'
     ),
