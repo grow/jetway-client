@@ -9,7 +9,7 @@ _install_requirements = req.parse_requirements(
 
 setup(
     name='jetway',
-    version=open('VERSION').read().strip(),
+    version=open('jetway/VERSION').read().strip(),
     description=(
         'Client library for the Jetway static site staging service.'
     ),
