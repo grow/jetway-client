@@ -37,6 +37,23 @@ class Verb(object):
   DELETE = 'DELETE'
 
 
+class HttpWithApiKey(httplib2.Http):
+
+  def __init__(self, *args, **kwargs):
+    self.api_key = kwargs.pop('api_key', None)
+    super(HttpWithApiKey, self).__init__(*args, **kwargs)
+
+  def _request(self, conn, host, absolute_uri, request_uri, method, body, headers,
+               redirections, cachekey):
+    if headers is None:
+      headers = {}
+    if self.api_key is not None:
+      headers['WebReview-Api-Key'] = self.api_key
+    return super(HttpWithApiKey, self)._request(
+        conn, host, absolute_uri, request_uri, method, body, headers,
+        redirections, cachekey)
+
+
 class RpcError(Error):
 
   def __init__(self, status, message=None, data=None):
@@ -63,7 +80,7 @@ class Jetway(object):
   _pool_size = 10
 
   def __init__(self, project, name, host, secure=False, username='default',
-               api='jetway', version='v0'):
+               api='jetway', version='v0', api_key=None):
     if '/' not in project:
       raise ValueError('Project must be in format: <owner>/<project>')
     self.owner, self.project = project.split('/')
@@ -72,6 +89,7 @@ class Jetway(object):
     self.lock = threading.Lock()
     self.pool = pool.ThreadPool(processes=self._pool_size)
     root = '{}://{}/_ah/api'.format('https' if secure else 'http', host)
+    self.api_key = api_key
     self._api = api
     self._version = version
     self._url = '{}/discovery/v1/apis/{}/{}/rest'.format(root, api, version)
@@ -85,11 +103,12 @@ class Jetway(object):
     }
 
   def get_service(self, username='default', reauth=False):
-    credentials = Jetway.get_credentials(username=username, reauth=reauth)
-    http = httplib2.Http()
-    credentials.authorize(http)
-    if credentials.access_token_expired:
-      credentials.refresh(http)
+    http = HttpWithApiKey(api_key=self.api_key)
+    if self.api_key is None:
+      credentials = Jetway.get_credentials(username=username, reauth=reauth)
+      credentials.authorize(http)
+      if credentials.access_token_expired:
+        credentials.refresh(http)
     return discovery.build(
         self._api,
         self._version,
