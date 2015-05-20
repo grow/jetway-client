@@ -127,7 +127,7 @@ class WebReview(object):
 
   @staticmethod
   def get_credentials(username, reauth=False):
-    storage = keyring_storage.Storage('Grow SDK - WebReview', username)
+    storage = keyring_storage.Storage('WebReview Client', username)
     credentials = storage.get()
     if credentials and not credentials.invalid:
       return credentials
