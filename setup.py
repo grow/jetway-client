@@ -10,12 +10,12 @@ _install_requirements = req.parse_requirements(
 
 
 setup(
-    name='jetway',
-    version=open(os.path.join(_here, 'jetway', 'VERSION')).read().strip(),
+    name='webreview',
+    version=open(os.path.join(_here, 'webreview', 'VERSION')).read().strip(),
     description=(
-        'Client library for the Jetway static site staging service.'
+        'Client library for the WebReview static site staging service.'
     ),
-    url='https://github.com/grow/jetway-client',
+    url='https://github.com/grow/webreview-client',
     license='MIT',
     author='Grow SDK Authors',
     author_email='hello@grow.io',

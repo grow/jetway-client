@@ -68,7 +68,7 @@ class RpcError(Error):
     return self.data[name]
 
 
-class JetwayRpcError(RpcError):
+class WebReviewRpcError(RpcError):
   pass
 
 
@@ -76,11 +76,11 @@ class GoogleStorageRpcError(RpcError, IOError):
   pass
 
 
-class Jetway(object):
+class WebReview(object):
   _pool_size = 10
 
   def __init__(self, project, name, host, secure=False, username='default',
-               api='jetway', version='v0', api_key=None):
+               api='webreview', version='v0', api_key=None):
     if '/' not in project:
       raise ValueError('Project must be in format: <owner>/<project>')
     self.owner, self.project = project.split('/')
@@ -105,7 +105,7 @@ class Jetway(object):
   def get_service(self, username='default', reauth=False):
     http = HttpWithApiKey(api_key=self.api_key)
     if self.api_key is None:
-      credentials = Jetway.get_credentials(username=username, reauth=reauth)
+      credentials = WebReview.get_credentials(username=username, reauth=reauth)
       credentials.authorize(http)
       if credentials.access_token_expired:
         credentials.refresh(http)
@@ -127,7 +127,7 @@ class Jetway(object):
 
   @staticmethod
   def get_credentials(username, reauth=False):
-    storage = keyring_storage.Storage('Grow SDK - Jetway', username)
+    storage = keyring_storage.Storage('Grow SDK - WebReview', username)
     credentials = storage.get()
     if credentials and not credentials.invalid:
       return credentials
@@ -140,7 +140,7 @@ class Jetway(object):
     return credentials
 
   def upload_dir(self, build_dir):
-    paths_to_contents = Jetway._get_paths_to_contents_from_dir(build_dir)
+    paths_to_contents = WebReview._get_paths_to_contents_from_dir(build_dir)
     return self.write(paths_to_contents)
 
   def delete(self, paths):
@@ -149,7 +149,7 @@ class Jetway(object):
     try:
       resp = self.service.sign_requests(body=req).execute()
     except errors.HttpError as e:
-      raise JetwayRpcError(e.resp.status, e._get_reason().strip())
+      raise WebReviewRpcError(e.resp.status, e._get_reason().strip())
     return self._execute_signed_requests(resp['signed_requests'], paths_to_contents)
 
   def read(self, paths):
@@ -158,7 +158,7 @@ class Jetway(object):
     try:
       resp = self.service.sign_requests(body=req).execute()
     except errors.HttpError as e:
-      raise JetwayRpcError(e.resp.status, e._get_reason().strip())
+      raise WebReviewRpcError(e.resp.status, e._get_reason().strip())
     return self._execute_signed_requests(resp['signed_requests'], paths_to_contents)
 
   def write(self, paths_to_contents):
@@ -166,7 +166,7 @@ class Jetway(object):
     try:
       resp = self.service.sign_requests(body=req).execute()
     except errors.HttpError as e:
-      raise JetwayRpcError(e.resp.status, e._get_reason().strip())
+      raise WebReviewRpcError(e.resp.status, e._get_reason().strip())
     return self._execute_signed_requests(resp['signed_requests'], paths_to_contents)
 
   def _execute(self, req, path, content, bar, resps, errors):

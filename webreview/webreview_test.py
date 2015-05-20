@@ -1,23 +1,23 @@
 import os
 import unittest
-import jetway
+import webreview
 
 
 TEST_BUILD_DIR = os.path.join(
     os.path.dirname(__file__), 'testdata', 'build')
 
 
-class JetwayTestCase(unittest.TestCase):
+class WebReviewTestCase(unittest.TestCase):
 
   def test_exception(self):
     def raise_error():
-      raise jetway.GoogleStorageRpcError(403, 'Forbidden.')
-    self.assertRaises(jetway.GoogleStorageRpcError, raise_error)
+      raise webreview.GoogleStorageRpcError(403, 'Forbidden.')
+    self.assertRaises(webreview.GoogleStorageRpcError, raise_error)
 
   def test_client(self):
-    self.assertRaises(ValueError, jetway.Jetway, 'foo', 'bar', 'baz')
+    self.assertRaises(ValueError, webreview.WebReview, 'foo', 'bar', 'baz')
 
-    client = jetway.Jetway(
+    client = webreview.WebReview(
         project='jeremydw/test',
         name='test-staging-site',
         host='grow-prod.appspot.com',
@@ -55,7 +55,7 @@ class JetwayTestCase(unittest.TestCase):
     # Error on reading deleted file.
     paths_read, errors = client.read([deleted_path])
     self.assertEqual({}, paths_read)
-    self.assertTrue(isinstance(errors[deleted_path], jetway.GoogleStorageRpcError))
+    self.assertTrue(isinstance(errors[deleted_path], webreview.GoogleStorageRpcError))
 
 
 
