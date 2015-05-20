@@ -9,5 +9,5 @@ script: |
       --cover-erase \
       --cover-html \
       --cover-html-dir=htmlcov \
-      --cover-package=jetway \
-      jetway/
+      --cover-package=webreview \
+      webreview/
