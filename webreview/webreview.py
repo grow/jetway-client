@@ -4,8 +4,12 @@ from multiprocessing import pool
 from oauth2client import client
 from oauth2client import keyring_storage
 from oauth2client import tools
+from protorpc import messages
+from protorpc import message_types
+from protorpc import protojson
 import base64
 import httplib2
+import json
 import logging
 import md5
 import mimetypes
@@ -37,6 +41,20 @@ class Verb(object):
   DELETE = 'DELETE'
 
 
+class AuthorMessage(messages.Message):
+  name = messages.StringField(1)
+  email = messages.StringField(2)
+
+
+class CommitMessage(messages.Message):
+  sha = messages.StringField(1)
+  author = messages.MessageField(AuthorMessage, 2)
+  date = message_types.DateTimeField(3)
+  message = messages.StringField(4)
+  has_unstaged_changes = messages.BooleanField(5)
+  branch = messages.StringField(6)
+
+
 class HttpWithApiKey(httplib2.Http):
 
   def __init__(self, *args, **kwargs):
@@ -61,8 +79,11 @@ class RpcError(Error):
     self.message = data['error_message'] if data else message
     self.data = data
 
+  def __repr__(self):
+    return '{}: {}'.format(self.status, self.message)
+
   def __str__(self):
-    return self.message
+    return '{}: {}'.format(self.status, self.message)
 
   def __getitem__(self, name):
     return self.data[name]
@@ -79,8 +100,9 @@ class GoogleStorageRpcError(RpcError, IOError):
 class WebReview(object):
   _pool_size = 10
 
-  def __init__(self, project, name, host, secure=False, username='default',
-               api='webreview', version='v0', api_key=None):
+  def __init__(self, project=None, name=None, commit=None, host=None,
+               secure=False, username='default', api='webreview',
+               version='v0', api_key=None):
     if '/' not in project:
       raise ValueError('Project must be in format: <owner>/<project>')
     self.owner, self.project = project.split('/')
@@ -88,6 +110,7 @@ class WebReview(object):
     self.gs = GoogleStorageSigner()
     self.lock = threading.Lock()
     self.pool = pool.ThreadPool(processes=self._pool_size)
+    self.commit = commit
     root = '{}://{}/_ah/api'.format('https' if secure else 'http', host)
     self.api_key = api_key
     self._api = api
@@ -97,7 +120,9 @@ class WebReview(object):
 
   @property
   def fileset(self):
+    commit = json.loads(protojson.encode_message(self.commit))
     return {
+        'commit': commit,
         'name': self.name,
         'project': {'owner': {'nickname': self.owner}, 'nickname': self.project},
     }
