@@ -122,9 +122,14 @@ class WebReview(object):
   def fileset(self):
     commit = json.loads(protojson.encode_message(self.commit))
     return {
-        'commit': commit,
         'name': self.name,
-        'project': {'owner': {'nickname': self.owner}, 'nickname': self.project},
+        'commit': commit,
+        'project': {
+            'nickname': self.project,
+            'owner': {
+                'nickname': self.owner,
+            },
+        },
     }
 
   def get_service(self, username='default', reauth=False):
@@ -193,6 +198,13 @@ class WebReview(object):
     except errors.HttpError as e:
       raise WebReviewRpcError(e.resp.status, e._get_reason().strip())
     return self._execute_signed_requests(resp['signed_requests'], paths_to_contents)
+
+  def finalize(self):
+    try:
+      req = {'fileset': self.fileset}
+      return self.service.finalize(body=req).execute()
+    except errors.HttpError as e:
+      raise WebReviewRpcError(e.resp.status, e._get_reason().strip())
 
   def _execute(self, req, path, content, bar, resps, errors):
     error = None
