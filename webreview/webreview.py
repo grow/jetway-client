@@ -120,7 +120,9 @@ class WebReview(object):
 
   @property
   def fileset(self):
-    commit = json.loads(protojson.encode_message(self.commit))
+    commit = None
+    if self.commit:
+      commit = json.loads(protojson.encode_message(self.commit))
     return {
         'name': self.name,
         'commit': commit,
