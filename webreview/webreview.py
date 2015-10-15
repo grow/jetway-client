@@ -165,7 +165,11 @@ class WebReview(object):
       return credentials
     if credentials is None or reauth:
       parser = tools.argparser
-      flags, _ = parser.parse_known_args([])
+      if os.getenv('INTERACTIVE_AUTH'):
+        args = []
+      else:
+        args = ['--noauth_local_webserver']
+      flags, _ = parser.parse_known_args(args)
       flow = client.OAuth2WebServerFlow(CLIENT_ID, CLIENT_SECRET, OAUTH_SCOPES,
                                         redirect_uri=REDIRECT_URI)
       credentials = tools.run_flow(flow, storage, flags)
