@@ -27,6 +27,8 @@ OAUTH_SCOPES = [
     'https://www.googleapis.com/auth/userinfo.email',
 ]
 
+DEFAULT_STORAGE_KEY = 'WebReview Client'
+
 requests_logger = logging.getLogger('requests')
 requests_logger.setLevel(logging.WARNING)
 
@@ -159,7 +161,9 @@ class WebReview(object):
 
   @staticmethod
   def get_credentials(username, reauth=False):
-    storage = keyring_storage.Storage('WebReview Client', username)
+    if os.getenv('CLEAR_AUTH'):
+      WebReview.clear_credentials(username)
+    storage = keyring_storage.Storage(DEFAULT_STORAGE_KEY, username)
     credentials = storage.get()
     if credentials and not credentials.invalid:
       return credentials
@@ -174,6 +178,11 @@ class WebReview(object):
                                         redirect_uri=REDIRECT_URI)
       credentials = tools.run_flow(flow, storage, flags)
     return credentials
+
+  @staticmethod
+  def clear_credentials(username):
+    storage = keyring_storage.Storage(DEFAULT_STORAGE_KEY, username)
+    storage.delete()
 
   def upload_dir(self, build_dir):
     paths_to_contents = WebReview._get_paths_to_contents_from_dir(build_dir)
