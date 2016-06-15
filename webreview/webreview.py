@@ -4,8 +4,8 @@ from multiprocessing import pool
 from oauth2client import client
 from oauth2client import keyring_storage
 from oauth2client import tools
-from protorpc import messages
 from protorpc import message_types
+from protorpc import messages
 from protorpc import protojson
 import base64
 import httplib2
@@ -55,6 +55,12 @@ class CommitMessage(messages.Message):
   message = messages.StringField(4)
   has_unstaged_changes = messages.BooleanField(5)
   branch = messages.StringField(6)
+
+
+def batch(items, size):
+  """Batches a list into a list of lists, with sub-lists sized by a specified
+  batch size."""
+  return [items[x:x + size] for x in xrange(0, len(items), size)]
 
 
 class HttpWithApiKey(httplib2.Http):
@@ -188,31 +194,35 @@ class WebReview(object):
     paths_to_contents = WebReview._get_paths_to_contents_from_dir(build_dir)
     return self.write(paths_to_contents)
 
+  def get_signed_requests(self, verb, paths_to_contents):
+    signed_requests = []
+    # Batch the request-signing request into groups of 100 to avoid
+    # DeadlineExceededError on the server.
+    batched_items = batch(paths_to_contents.items(), 100)
+    for item in batched_items:
+      batched_paths_to_contents = dict(item)
+      req = self.gs.create_sign_requests_request(verb, self.fileset,
+          batched_paths_to_contents)
+      try:
+        resp = self.service.sign_requests(body=req).execute()
+      except errors.HttpError as e:
+        raise WebReviewRpcError(e.resp.status, e._get_reason().strip())
+      signed_requests += resp['signed_requests']
+    return signed_requests
+
   def delete(self, paths):
     paths_to_contents = dict([(path, None) for path in paths])
-    req = self.gs.create_sign_requests_request(Verb.DELETE, self.fileset, paths_to_contents)
-    try:
-      resp = self.service.sign_requests(body=req).execute()
-    except errors.HttpError as e:
-      raise WebReviewRpcError(e.resp.status, e._get_reason().strip())
-    return self._execute_signed_requests(resp['signed_requests'], paths_to_contents)
+    signed_requests = self.get_signed_requests(Verb.DELETE, paths_to_contents)
+    return self._execute_signed_requests(signed_requests, paths_to_contents)
 
   def read(self, paths):
     paths_to_contents = dict([(path, None) for path in paths])
-    req = self.gs.create_sign_requests_request(Verb.GET, self.fileset, paths_to_contents)
-    try:
-      resp = self.service.sign_requests(body=req).execute()
-    except errors.HttpError as e:
-      raise WebReviewRpcError(e.resp.status, e._get_reason().strip())
-    return self._execute_signed_requests(resp['signed_requests'], paths_to_contents)
+    signed_requests = self.get_signed_requests(Verb.GET, paths_to_contents)
+    return self._execute_signed_requests(signed_requests, paths_to_contents)
 
   def write(self, paths_to_contents):
-    req = self.gs.create_sign_requests_request(Verb.PUT, self.fileset, paths_to_contents)
-    try:
-      resp = self.service.sign_requests(body=req).execute()
-    except errors.HttpError as e:
-      raise WebReviewRpcError(e.resp.status, e._get_reason().strip())
-    return self._execute_signed_requests(resp['signed_requests'], paths_to_contents)
+    signed_requests = self.get_signed_requests(Verb.PUT, paths_to_contents)
+    return self._execute_signed_requests(signed_requests, paths_to_contents)
 
   def finalize(self):
     try:
@@ -316,22 +326,18 @@ class GoogleStorageSigner(object):
         'Signature': req['params']['signature'],
         'Expires': req['params']['expires'],
     }
-
     if signed_request['verb'] == Verb.PUT:
       headers = {
           'Content-Type': req['headers']['content_type'],
           'Content-MD5': req['headers']['content_md5'],
           'Content-Length': req['headers']['content_length'],
       }
-      resp = requests.put(req['url'], params=params, headers=headers, data=content)
-
+      resp = requests.put(req['url'], params=params, headers=headers,
+                          data=content)
     elif signed_request['verb'] == Verb.GET:
       resp = requests.get(req['url'], params=params)
-
     elif signed_request['verb'] == Verb.DELETE:
       resp = requests.delete(req['url'], params=params)
-
     if not (resp.status_code >= 200 and resp.status_code < 205):
       raise GoogleStorageRpcError(resp.status_code, message=resp.content)
-
     return resp.content
