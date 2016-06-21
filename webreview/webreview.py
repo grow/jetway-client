@@ -2,7 +2,6 @@ from googleapiclient import discovery
 from googleapiclient import errors
 from multiprocessing import pool
 from oauth2client import client
-from oauth2client import keyring_storage
 from oauth2client import tools
 from protorpc import message_types
 from protorpc import messages
@@ -61,6 +60,19 @@ def batch(items, size):
   """Batches a list into a list of lists, with sub-lists sized by a specified
   batch size."""
   return [items[x:x + size] for x in xrange(0, len(items), size)]
+
+
+def get_storage():
+    """Returns the Storage class compatible with the current environment."""
+    try:
+      from oauth2client import appengine
+      return appengine.StorageByKeyName
+    except ImportError:
+      from oauth2client.contrib import keyring_storage
+      return keyring_storage.Storage
+
+
+Storage = get_storage()
 
 
 class HttpWithApiKey(httplib2.Http):
@@ -169,7 +181,7 @@ class WebReview(object):
   def get_credentials(username, reauth=False):
     if os.getenv('CLEAR_AUTH'):
       WebReview.clear_credentials(username)
-    storage = keyring_storage.Storage(DEFAULT_STORAGE_KEY, username)
+    storage = Storage(DEFAULT_STORAGE_KEY, username)
     credentials = storage.get()
     if credentials and not credentials.invalid:
       return credentials
@@ -189,7 +201,7 @@ class WebReview(object):
 
   @staticmethod
   def clear_credentials(username):
-    storage = keyring_storage.Storage(DEFAULT_STORAGE_KEY, username)
+    storage = Storage(DEFAULT_STORAGE_KEY, username)
     storage.delete()
 
   def upload_dir(self, build_dir):
