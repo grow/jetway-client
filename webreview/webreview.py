@@ -12,6 +12,7 @@ import json
 import logging
 import md5
 import mimetypes
+import multiprocessing
 import os
 import progressbar
 import requests
@@ -209,19 +210,34 @@ class WebReview(object):
     return self.write(paths_to_contents)
 
   def get_signed_requests(self, verb, paths_to_contents):
-    signed_requests = []
+    self.pool = pool.ThreadPool(processes=self._pool_size)
+    manager = multiprocessing.Manager()
     # Batch the request-signing request into groups of 100 to avoid
     # DeadlineExceededError on the server.
-    batched_items = batch(paths_to_contents.items(), 100)
-    for item in batched_items:
+    items_to_batch = paths_to_contents.items()
+    batched_items = batch(items_to_batch, 100)
+    signed_requests = manager.list()
+    error_objs = manager.list()
+
+    def _execute_request_signing_request(reqs, errs, service, item):
       batched_paths_to_contents = dict(item)
-      req = self.gs.create_sign_requests_request(verb, self.fileset,
-          batched_paths_to_contents)
+      req = self.gs.create_sign_requests_request(
+          verb, self.fileset, batched_paths_to_contents)
       try:
-        resp = self.service.sign_requests(body=req).execute()
+        resp = service.sign_requests(body=req).execute()
       except errors.HttpError as e:
-        raise WebReviewRpcError(e.resp.status, e._get_reason().strip())
-      signed_requests += resp['signed_requests']
+        error = WebReviewRpcError(e.resp.status, e._get_reason().strip())
+        errs.append(error)
+      reqs += resp['signed_requests']
+
+    for item in batched_items:
+      service = self.get_service()
+      args = (signed_requests, error_objs, service, item)
+      self.pool.apply_async(_execute_request_signing_request, args=args)
+    self.pool.close()
+    self.pool.join()
+    if error_objs:
+      raise error_objs[0]
     return signed_requests
 
   def delete(self, paths):
@@ -261,6 +277,8 @@ class WebReview(object):
       bar.update(bar.currval + 1)
 
   def _execute_signed_requests(self, signed_requests, paths_to_contents):
+    if not signed_requests:
+      raise ValueError('No requests to sign.')
     self.pool = pool.ThreadPool(processes=self._pool_size)
     resps = {}
     errors = {}
