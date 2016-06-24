@@ -212,12 +212,20 @@ class WebReview(object):
   def get_signed_requests(self, verb, paths_to_contents):
     self.pool = pool.ThreadPool(processes=self._pool_size)
     manager = multiprocessing.Manager()
-    # Batch the request-signing request into groups of 100 to avoid
+    # Batch the request-signing request into groups of 200 to avoid
     # DeadlineExceededError on the server.
     items_to_batch = paths_to_contents.items()
-    batched_items = batch(items_to_batch, 100)
+    batched_items = batch(items_to_batch, 200)
     signed_requests = manager.list()
     error_objs = manager.list()
+
+    batch_size = len(batched_items)
+    text = 'Starting: %(value)d/{} (in %(elapsed)s)'
+    widgets = [progressbar.FormatLabel(text.format(batch_size))]
+    bar = None
+    if batch_size > 2:
+      bar = progressbar.ProgressBar(widgets=widgets, maxval=batch_size)
+      bar.start()
 
     def _execute_request_signing_request(reqs, errs, service, item):
       batched_paths_to_contents = dict(item)
@@ -228,6 +236,8 @@ class WebReview(object):
       except errors.HttpError as e:
         error = WebReviewRpcError(e.resp.status, e._get_reason().strip())
         errs.append(error)
+      if bar:
+        bar.update(bar.currval + 1)
       reqs += resp['signed_requests']
 
     for item in batched_items:
@@ -238,6 +248,8 @@ class WebReview(object):
     self.pool.join()
     if error_objs:
       raise error_objs[0]
+    if bar:
+      bar.finish()
     return signed_requests
 
   def delete(self, paths):
