@@ -145,12 +145,12 @@ class WebReview(object):
     if self.commit:
       commit = json.loads(protojson.encode_message(self.commit))
     return {
-        'name': self.name,
+        'name': self.name.lower() if self.name else '',
         'commit': commit,
         'project': {
-            'nickname': self.project,
+            'nickname': self.project.lower() if self.project else '',
             'owner': {
-                'nickname': self.owner,
+                'nickname': self.owner.lower() if self.owner else '',
             },
         },
     }
@@ -363,7 +363,7 @@ class GoogleStorageSigner(object):
     }
 
   @staticmethod
-  def execute_signed_request(signed_request, content=None):
+  def execute_signed_request(signed_request, content=None, retry=0):
     req = signed_request
     params = {
         'GoogleAccessId': req['params']['google_access_id'],
@@ -382,6 +382,11 @@ class GoogleStorageSigner(object):
       resp = requests.get(req['url'], params=params)
     elif signed_request['verb'] == Verb.DELETE:
       resp = requests.delete(req['url'], params=params)
+    # GCS may intermittently respond with 503 errors. Retry up to two times
+    # when encountering 503s.
+    if retry < 2 and resp.status_code == 503:
+      return GoogleStorageSigner.execute_signed_request(signed_request,
+          content=content, retry=retry + 1)
     if not (resp.status_code >= 200 and resp.status_code < 205):
       raise GoogleStorageRpcError(resp.status_code, message=resp.content)
     return resp.content
