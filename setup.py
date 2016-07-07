@@ -18,7 +18,7 @@ setup(
     url='https://github.com/grow/webreview-client',
     license='MIT',
     author='Grow SDK Authors',
-    author_email='hello@grow.io',
+    author_email='code@grow.io',
     include_package_data=True,
     install_requires=[str(ir.req) for ir in _install_requirements],
     packages=find_packages(),
@@ -31,7 +31,6 @@ setup(
         'content management'
     ],
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
         'Environment :: Web Environment',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
@@ -40,6 +39,5 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python',
         'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
-        'Topic :: Internet :: WWW/HTTP',
         'Topic :: Software Development :: Libraries :: Python Modules',
     ])
