@@ -234,8 +234,8 @@ class WebReview(object):
       try:
         resp = service.sign_requests(body=req).execute()
       except errors.HttpError as e:
-        error = WebReviewRpcError(e.resp.status, e._get_reason().strip())
-        errs.append(error)
+        errs += [(e.resp.status, e._get_reason().strip())]
+        return
       if bar:
         bar.update(bar.currval + 1)
       reqs += resp['signed_requests']
@@ -247,7 +247,8 @@ class WebReview(object):
     self.pool.close()
     self.pool.join()
     if error_objs:
-      raise error_objs[0]
+      status, reason = error_objs[0]
+      raise WebReviewRpcError(status, reason)
     if bar:
       bar.finish()
     return signed_requests
