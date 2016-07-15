@@ -1,2 +1,5 @@
-include * 
 recursive-include webreview *
+recursive-exclude * *.pyc *.pyo
+recursive-exclude * *_test.py
+recursive-exclude webreview/testdata *
+include requirements.txt
