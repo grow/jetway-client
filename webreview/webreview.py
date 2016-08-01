@@ -28,6 +28,8 @@ OAUTH_SCOPES = [
 ]
 
 DEFAULT_STORAGE_KEY = 'WebReview Client'
+_CLEARED_AUTH_KEYS = {}
+
 
 requests_logger = logging.getLogger('requests')
 requests_logger.setLevel(logging.WARNING)
@@ -180,7 +182,7 @@ class WebReview(object):
 
   @staticmethod
   def get_credentials(username, reauth=False):
-    if os.getenv('CLEAR_AUTH'):
+    if os.getenv('CLEAR_AUTH') and username not in _CLEARED_AUTH_KEYS:
       WebReview.clear_credentials(username)
     storage = Storage(DEFAULT_STORAGE_KEY, username)
     credentials = storage.get()
@@ -204,6 +206,7 @@ class WebReview(object):
   def clear_credentials(username):
     storage = Storage(DEFAULT_STORAGE_KEY, username)
     storage.delete()
+    _CLEARED_AUTH_KEYS[username] = True
 
   def upload_dir(self, build_dir):
     paths_to_contents = WebReview._get_paths_to_contents_from_dir(build_dir)
