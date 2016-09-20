@@ -181,22 +181,31 @@ class WebReview(object):
     return self._service
 
   @staticmethod
+  def _get_flags():
+    parser = tools.argparser
+    if os.getenv('INTERACTIVE_AUTH'):
+      args = []
+    else:
+      args = ['--noauth_local_webserver']
+    flags, _ = parser.parse_known_args(args)
+    return flags
+
+  @staticmethod
   def get_credentials(username, reauth=False):
     if os.getenv('CLEAR_AUTH') and username not in _CLEARED_AUTH_KEYS:
       WebReview.clear_credentials(username)
     storage = Storage(DEFAULT_STORAGE_KEY, username)
-    credentials = storage.get()
-    if credentials and not credentials.invalid:
-      return credentials
-    if credentials is None or reauth:
-      parser = tools.argparser
-      if os.getenv('INTERACTIVE_AUTH'):
-        args = []
-      else:
-        args = ['--noauth_local_webserver']
-      flags, _ = parser.parse_known_args(args)
-      flow = client.OAuth2WebServerFlow(CLIENT_ID, CLIENT_SECRET, OAUTH_SCOPES,
-                                        redirect_uri=REDIRECT_URI)
+    flags = WebReview._get_flags()
+    if os.getenv('AUTH_KEY_FILE'):
+      key_file = os.path.expanduser(os.getenv('AUTH_KEY_FILE'))
+      credentials = client.GoogleCredentials.from_stream(key_file)
+    else:
+      credentials = storage.get()
+      if credentials and not credentials.invalid:
+        return credentials
+      if credentials is None or reauth:
+        flow = client.OAuth2WebServerFlow(CLIENT_ID, CLIENT_SECRET, OAUTH_SCOPES,
+                                          redirect_uri=REDIRECT_URI)
       credentials = tools.run_flow(flow, storage, flags)
       # run_flow changes the logging level, so change it back.
       logging.getLogger().setLevel(getattr(logging, 'INFO'))
