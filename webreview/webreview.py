@@ -2,6 +2,7 @@ from googleapiclient import discovery
 from googleapiclient import errors
 from multiprocessing import pool
 from oauth2client import client
+from oauth2client import service_account
 from oauth2client import tools
 from protorpc import message_types
 from protorpc import messages
@@ -198,7 +199,8 @@ class WebReview(object):
     flags = WebReview._get_flags()
     if os.getenv('AUTH_KEY_FILE'):
       key_file = os.path.expanduser(os.getenv('AUTH_KEY_FILE'))
-      credentials = client.GoogleCredentials.from_stream(key_file)
+      credentials = (service_account.ServiceAccountCredentials.
+          from_json_keyfile_name(key_file, OAUTH_SCOPES))
     else:
       credentials = storage.get()
       if credentials and not credentials.invalid:
