@@ -225,11 +225,11 @@ class WebReview(object):
 
   def get_signed_requests(self, verb, paths_to_contents):
     self.pool = pool.ThreadPool(processes=self._pool_size)
-    manager = multiprocessing.Manager()
     # Batch the request-signing request into groups of 200 to avoid
     # DeadlineExceededError on the server.
     items_to_batch = paths_to_contents.items()
     batched_items = batch(items_to_batch, 200)
+    manager = multiprocessing.Manager()
     signed_requests = manager.list()
     error_objs = manager.list()
 
@@ -250,8 +250,8 @@ class WebReview(object):
       except errors.HttpError as e:
         errs += [(e.resp.status, e._get_reason().strip())]
         return
-      if bar:
-        bar.update(bar.currval + 1)
+      if bar and False:
+        bar.update(bar.value + 1)
       reqs += resp['signed_requests']
 
     for item in batched_items:
@@ -301,7 +301,7 @@ class WebReview(object):
       if error is not None:
         errors[path] = e
     if bar is not None:
-      bar.update(bar.currval + 1)
+      bar.update(bar.value + 1)
 
   def _execute_signed_requests(self, signed_requests, paths_to_contents):
     if not signed_requests:

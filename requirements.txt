@@ -2,6 +2,6 @@ google-api-python-client==1.6.2
 httplib2==0.10.3
 keyring==8.7
 oauth2client==4.0.0
-progressbar2==3.18.0
+progressbar2==3.17.1
 protorpc==0.11.1
 requests==2.13.0

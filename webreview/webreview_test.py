@@ -55,8 +55,8 @@ class WebReviewTestCase(unittest.TestCase):
     # Error on reading deleted file.
     paths_read, errors = client.read([deleted_path])
     self.assertEqual({}, paths_read)
-    error_class = webreview.GoogleStorageRpcError
-    self.assertTrue(isinstance(errors[deleted_path], error_class))
+    self.assertTrue(isinstance(errors[deleted_path], webreview.GoogleStorageRpcError))
+
 
 
 if __name__ == '__main__':
