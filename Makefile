@@ -23,6 +23,17 @@ test:
 	  --cover-package=webreview \
 	  webreview
 
+test-nosetests:
+	nosetests \
+	  -v \
+	  --rednose \
+	  --with-coverage \
+	  --cover-erase \
+	  --cover-html \
+	  --cover-html-dir=htmlcov \
+	  --cover-package=webreview \
+	  webreview
+
 upload-pypi:
 	$(MAKE) test
 	python setup.py sdist upload
