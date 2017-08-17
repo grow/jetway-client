@@ -8,10 +8,10 @@ from protorpc import message_types
 from protorpc import messages
 from protorpc import protojson
 import base64
+import hashlib
 import httplib2
 import json
 import logging
-import md5
 import mimetypes
 import multiprocessing
 import os
@@ -360,7 +360,7 @@ class GoogleStorageSigner(object):
       else:
         mimetype = mimetypes.guess_type(path)[0]
         mimetype = mimetype or 'application/octet-stream'
-      md5_digest = base64.b64encode(md5.new(content).digest())
+      md5_digest = base64.b64encode(hashlib.md5(content).digest())
       req['headers'] = {}
       req['headers']['content_length'] = str(len(content))
       req['headers']['content_md5'] = md5_digest
