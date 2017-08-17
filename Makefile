@@ -9,11 +9,23 @@ develop:
 	}
 	virtualenv env --distribute
 	. env/bin/activate
+	./env/bin/pip install --upgrade pip
 	./env/bin/pip install -r requirements-dev.txt
 
 test:
 	. env/bin/activate
 	./env/bin/nosetests \
+	  -v \
+	  --rednose \
+	  --with-coverage \
+	  --cover-erase \
+	  --cover-html \
+	  --cover-html-dir=htmlcov \
+	  --cover-package=webreview \
+	  webreview
+
+test-nosetests:
+	nosetests \
 	  -v \
 	  --rednose \
 	  --with-coverage \
