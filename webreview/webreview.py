@@ -129,6 +129,13 @@ class RenderedDocStub(object):
         self.path = path
         self.content = content
 
+    def read(self):
+        return self.content
+
+    def write(self, content):
+        self.content = content
+        return self.content
+
 
 class WebReview(object):
     _pool_size = 10
@@ -335,7 +342,7 @@ class WebReview(object):
             for req in signed_requests:
                 path = req['path']
                 args = (req, path, paths_to_rendered_doc[
-                        path].content, bar, resps, errors)
+                        path].read(), bar, resps, errors)
                 self.pool.apply_async(self._execute, args=args)
             self.pool.close()
             self.pool.join()
@@ -344,7 +351,7 @@ class WebReview(object):
             req = signed_requests[0]
             path = req['path']
             self._execute(req, path, paths_to_rendered_doc[
-                          path].content, None, resps, errors)
+                          path].read(), None, resps, errors)
         return resps, errors
 
     @classmethod
@@ -389,7 +396,7 @@ class GoogleStorageSigner(object):
     def create_sign_requests_request(self, verb, fileset, paths_to_rendered_doc):
         unsigned_requests = []
         for path, rendered_doc in paths_to_rendered_doc.iteritems():
-            req = self.create_unsigned_request(verb, path, rendered_doc.content)
+            req = self.create_unsigned_request(verb, path, rendered_doc.read())
             unsigned_requests.append(req)
         return {
             'fileset': fileset,
