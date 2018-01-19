@@ -1,3 +1,5 @@
+VERSION = $(shell cat webreview/VERSION)
+
 develop:
 	@pip --version > /dev/null || { \
 	  echo "pip not installed. Trying to install pip..."; \
@@ -36,6 +38,10 @@ test-nosetests:
 	  webreview
 
 upload-pypi:
+	. env/bin/activate
 	$(MAKE) test
-	python setup.py sdist upload
-	rm -rf *.egg-info
+	python setup.py sdist bdist_wheel
+	pip2 install urllib3[secure] --upgrade
+	pip2 install twine --upgrade
+	twine upload dist/webreview-$(VERSION)*
+	rm dist/webreview-$(VERSION)*
