@@ -7,4 +7,4 @@ progressbar2==3.34.3
 protorpc==0.11.1
 requests==2.18.4
 # Transitive Dependency having issues: https://github.com/benjaminp/six/issues/210
-six = "==1.10.0"
+six==1.10.0
