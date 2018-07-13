@@ -1,17 +1,21 @@
-import uuid
+"""WebReview Client Setup."""
+
 import os
 from setuptools import find_packages
 from setuptools import setup
-from pip import req
 
-_here = os.path.dirname(__file__)
-_install_requirements = req.parse_requirements(
-    'requirements.txt', session=uuid.uuid1())
 
+INSTALL_REQ = []
+
+for i in open('requirements.txt').readlines():
+    req = i.strip()
+    if req.startswith(('#', '-')):
+        continue
+    INSTALL_REQ.append(req)
 
 setup(
     name='webreview',
-    version=open(os.path.join(_here, 'webreview', 'VERSION')).read().strip(),
+    version=open(os.path.join('webreview', 'VERSION')).read().strip(),
     description=(
         'Client library for the WebReview static site staging service.'
     ),
@@ -20,7 +24,7 @@ setup(
     author='Grow SDK Authors',
     author_email='code@grow.io',
     include_package_data=True,
-    install_requires=[str(ir.req) for ir in _install_requirements],
+    install_requires=INSTALL_REQ,
     packages=find_packages(),
     keywords=[
         'grow',
