@@ -28,6 +28,15 @@ OAUTH_SCOPES = [
     'https://www.googleapis.com/auth/plus.me',
     'https://www.googleapis.com/auth/userinfo.email',
 ]
+APPENGINE_SERVER_PREFIXES = ('Development/', 'Google App Engine/')
+# https://cloud.google.com/appengine/docs/standard/python/how-requests-are-handled
+IS_APPENGINE = os.getenv('SERVER_SOFTWARE', '').startswith(
+    APPENGINE_SERVER_PREFIXES)
+
+try:
+    from oauth2client.contrib import appengine
+except ImportError:
+    appengine = None
 
 DEFAULT_STORAGE_KEY = 'WebReview Client'
 _CLEARED_AUTH_KEYS = {}
@@ -67,17 +76,16 @@ def batch(items, size):
     return [items[x:x + size] for x in xrange(0, len(items), size)]
 
 
-def get_storage():
+def get_storage(key, username):
     """Returns the Storage class compatible with the current environment."""
-    try:
-        from oauth2client import appengine
-        return appengine.StorageByKeyName
-    except ImportError:
-        from oauth2client.contrib import keyring_storage
-        return keyring_storage.Storage
-
-
-Storage = get_storage()
+    if IS_APPENGINE and appengine:
+        return appengine.StorageByKeyName(
+            appengine.CredentialsModel, username, 'credentials')
+    file_name = os.path.expanduser('~/.config/webreview/{}_{}'.format(key, username))
+    dir_name = os.path.dirname(file_name)
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    return oauth_file.Storage(file_name)
 
 
 class HttpWithApiKey(httplib2.Http):
@@ -213,7 +221,7 @@ class WebReview(object):
     def get_credentials(username, reauth=False):
         if os.getenv('CLEAR_AUTH') and username not in _CLEARED_AUTH_KEYS:
             WebReview.clear_credentials(username)
-        storage = Storage(DEFAULT_STORAGE_KEY, username)
+        storage = get_storage(DEFAULT_STORAGE_KEY, username)
         flags = WebReview._get_flags()
         if os.getenv('AUTH_KEY_FILE'):
             key_file = os.path.expanduser(os.getenv('AUTH_KEY_FILE'))
@@ -233,7 +241,7 @@ class WebReview(object):
 
     @staticmethod
     def clear_credentials(username):
-        storage = Storage(DEFAULT_STORAGE_KEY, username)
+        storage = get_storage(DEFAULT_STORAGE_KEY, username)
         storage.delete()
         _CLEARED_AUTH_KEYS[username] = True
 
