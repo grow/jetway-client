@@ -2,6 +2,7 @@ from googleapiclient import discovery
 from googleapiclient import errors
 from multiprocessing import pool
 from oauth2client import client
+from oauth2client import file as oauth_file
 from oauth2client import service_account
 from oauth2client import tools
 from protorpc import message_types
