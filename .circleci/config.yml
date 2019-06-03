@@ -1,0 +1,35 @@
+version: 2
+
+jobs:
+  test:
+    working_directory: ~/grow
+    docker:
+    - image: ubuntu:xenial
+    steps:
+    - checkout
+
+    - run:
+        name: Update Pip
+        command: pip install -U pip
+
+    - run:
+        name: Install pipenv
+        command: pip install pipenv
+
+    - run:
+        name: Update pipenv
+        command: pipenv update
+
+    - run:
+        name: Install Packages
+        command: pipenv install --dev
+
+    - run:
+        name: Run Tests
+        command: make test-nosetests
+
+workflows:
+  version: 2
+  test:
+    jobs:
+    - test
