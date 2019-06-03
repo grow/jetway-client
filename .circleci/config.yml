@@ -27,6 +27,11 @@ jobs:
         command: pipenv install --dev
 
     - run:
+        name: Client Secret
+        command: |
+          echo $CLIENT_SECRET | base64 --decode > ~/client-secret.json
+
+    - run:
         name: Run Tests
         command: |
           pipenv run nosetests \
@@ -37,6 +42,8 @@ jobs:
             --cover-xml \
             --cover-package=webreview \
             webreview
+        environment:
+          AUTH_KEY_FILE: ~/client-secret.json
 
 workflows:
   version: 2
