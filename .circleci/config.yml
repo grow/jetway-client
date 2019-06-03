@@ -28,7 +28,15 @@ jobs:
 
     - run:
         name: Run Tests
-        command: make test-nosetests
+        command: |
+          pipenv run nosetests \
+            -v \
+            --rednose \
+            --with-coverage \
+            --cover-erase \
+            --cover-xml \
+            --cover-package=webreview \
+            webreview
 
 workflows:
   version: 2
