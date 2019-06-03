@@ -1,11 +1,17 @@
-# Keep in sync with grow deps...
+-i https://pypi.org/simple
+certifi==2019.3.9
+chardet==3.0.4
 google-api-python-client==1.3.2
-httplib2>=0.10.3
-# Keep in sync with grow deps...
+httplib2==0.12.3
+idna==2.8
 oauth2client==3.0.0
-progressbar2>=3.34.3
-# Keep in sync with grow deps...
+progressbar2==3.42.0
 protorpc==0.11.1
-requests>=2.18.4
-# Transitive Dependency having issues: https://github.com/benjaminp/six/issues/210
+pyasn1-modules==0.2.5
+pyasn1==0.4.5
+python-utils==2.3.0
+requests==2.22.0
+rsa==4.0
 six==1.10.0
+uritemplate==3.0.0
+urllib3==1.25.3
