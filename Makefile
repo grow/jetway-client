@@ -1,48 +1,48 @@
+PIP_ENV := $(shell pipenv --venv)
 VERSION = $(shell cat webreview/VERSION)
+
+# Default test target for "make test". Allows "make target=grow.pods.pods_test test"
+target ?= 'webreview'
 
 develop:
 	@pip --version > /dev/null || { \
 	  echo "pip not installed. Trying to install pip..."; \
 	  sudo easy_install pip; \
 	}
-	@virtualenv --version > /dev/null || { \
-	  echo "virtualenv not installed. Trying to install virtualenv..."; \
-	  sudo pip install virtualenv; \
+	@pipenv --version > /dev/null || { \
+	  echo "pipenv not installed. Trying to install pipenv..."; \
+	  sudo pip install pipenv; \
 	}
-	virtualenv env --distribute
-	. env/bin/activate
-	./env/bin/pip install --upgrade pip
-	./env/bin/pip install -r requirements-dev.txt
+	pipenv update
+	pipenv install --dev
+	pipenv lock -r > requirements.txt
 
 test:
-	. env/bin/activate
-	./env/bin/nosetests \
+	. $(PIP_ENV)/bin/activate
+	$(PIP_ENV)/bin/nosetests \
 	  -v \
 	  --rednose \
 	  --with-coverage \
 	  --cover-erase \
-	  --cover-html \
-	  --cover-html-dir=htmlcov \
+		--cover-xml \
 	  --cover-package=webreview \
-	  webreview
+	  $(target)
 
 test-nosetests:
-	nosetests \
+	. $(PIP_ENV)/bin/activate
+	$(PIP_ENV)/bin/nosetests \
 	  -v \
 	  --rednose \
 	  --with-coverage \
 	  --cover-erase \
-	  --cover-html \
-	  --cover-html-dir=htmlcov \
+		--cover-xml \
 	  --cover-package=webreview \
 	  webreview
 
 upload-pypi:
-	. env/bin/activate
-	# $(MAKE) test
-	pip2 install wheel
+	$(MAKE) test
+	. $(PIP_ENV)/bin/activate
 	python setup.py sdist bdist_wheel
 	pip2 install urllib3[secure] --upgrade
 	pip2 install twine --upgrade
 	twine upload dist/webreview-$(VERSION)*
-	rm dist/webreview-$(VERSION)*

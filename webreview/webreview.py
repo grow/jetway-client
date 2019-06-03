@@ -232,9 +232,8 @@ class WebReview(object):
             credentials = storage.get()
             if credentials and not credentials.invalid:
                 return credentials
-            if credentials is None or reauth:
-                flow = client.OAuth2WebServerFlow(CLIENT_ID, CLIENT_SECRET, OAUTH_SCOPES,
-                                                  redirect_uri=REDIRECT_URI)
+            flow = client.OAuth2WebServerFlow(
+                CLIENT_ID, CLIENT_SECRET, OAUTH_SCOPES, redirect_uri=REDIRECT_URI)
             credentials = tools.run_flow(flow, storage, flags)
             # run_flow changes the logging level, so change it back.
             logging.getLogger().setLevel(getattr(logging, 'INFO'))
