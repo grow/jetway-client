@@ -10,7 +10,9 @@ jobs:
 
     - run:
         name: Update Pip
-        command: pip install -U pip
+        command: |
+          apt-get update \
+          apt-get install -y --no-install-recommends python python-pip
 
     - run:
         name: Install pipenv
