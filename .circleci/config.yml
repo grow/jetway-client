@@ -2,7 +2,7 @@ version: 2
 
 jobs:
   test:
-    working_directory: ~/grow
+    working_directory: ~/webreview
     docker:
     - image: ubuntu:xenial
     steps:
