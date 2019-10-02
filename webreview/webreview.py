@@ -431,9 +431,9 @@ class GoogleStorageSigner(object):
             resp = requests.get(req['url'], params=params)
         elif signed_request['verb'] == Verb.DELETE:
             resp = requests.delete(req['url'], params=params)
-        # GCS may intermittently respond with 503 errors. Retry up to two times
-        # when encountering 503s.
-        if retry < 2 and resp.status_code == 503:
+        # GCS may intermittently respond with 50X errors. Retry up to three times
+        # when encountering 50Xs.
+        if retry < 3 and resp.status_code in [502, 503, 504]:
             return GoogleStorageSigner.execute_signed_request(signed_request,
                                                               content=content, retry=retry + 1)
         if not (resp.status_code >= 200 and resp.status_code < 205):
