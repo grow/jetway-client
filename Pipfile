@@ -18,8 +18,6 @@ google-api-python-client = ">=1.3.2"
 # Unable to use non-unicode strings: https://github.com/google/protorpc/issues/26
 protorpc = "==0.11.1"
 requests = ">=2.18.4"
-# Transitive Dependency having issues: https://github.com/benjaminp/six/issues/210
-six = "==1.10.0"
 
 [requires]
 python_version = "2.7"
