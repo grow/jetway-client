@@ -74,7 +74,7 @@ class CommitMessage(messages.Message):
 def batch(items, size):
     """Batches a list into a list of lists, with sub-lists sized by a specified
     batch size."""
-    return [items[x:x + size] for x in xrange(0, len(items), size)]
+    return [items[x:x + size] for x in range(0, len(items), size)]
 
 
 def get_storage(key, username):
@@ -254,7 +254,7 @@ class WebReview(object):
         self.pool = pool.ThreadPool(processes=self._pool_size)
         # Batch the request-signing request into groups of 200 to avoid
         # DeadlineExceededError on the server.
-        items_to_batch = paths_to_rendered_doc.items()
+        items_to_batch = list(paths_to_rendered_doc.items())
         batched_items = batch(items_to_batch, 200)
         manager = multiprocessing.Manager()
         signed_requests = manager.list()
@@ -374,7 +374,7 @@ class WebReview(object):
                     path = '/{}'.format(path)
                 content = fp.read()
                 fp.close()
-                if isinstance(content, unicode):
+                if isinstance(content, str):
                     content = content.encode('utf-8')
                 paths_to_rendered_doc[path] = RenderedDocStub(content=content)
         return paths_to_rendered_doc
@@ -403,7 +403,7 @@ class GoogleStorageSigner(object):
 
     def create_sign_requests_request(self, verb, fileset, paths_to_rendered_doc):
         unsigned_requests = []
-        for path, rendered_doc in paths_to_rendered_doc.iteritems():
+        for path, rendered_doc in paths_to_rendered_doc.items():
             req = self.create_unsigned_request(verb, path, rendered_doc.read())
             unsigned_requests.append(req)
         return {

@@ -6,7 +6,7 @@ $ python test_auth.py
 # Follow authentication prompts.
 """
 
-import webreview
+from . import webreview
 
 client = webreview.WebReview(
     project='jeremydw/test',
