@@ -331,7 +331,7 @@ class WebReview(object):
             if resp is not None:
                 resps[path] = resp
             if error is not None:
-                errors[path] = e
+                errors[path] = error
         if bar is not None:
             bar.update(bar.value + 1)
 
