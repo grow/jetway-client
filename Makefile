@@ -15,7 +15,6 @@ develop:
 	}
 	pipenv update
 	pipenv install --dev
-	pipenv lock -r > requirements.txt
 
 test:
 	. $(PIP_ENV)/bin/activate
