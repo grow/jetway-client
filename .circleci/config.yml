@@ -18,7 +18,8 @@ jobs:
     - run:
         name: Install and run pipenv
         command: |
-          pip3 install --upgrade pip virtualenv pipenv wheel
+          pip3 install --upgrade wheel
+          pip3 install --upgrade pip virtualenv pipenv
           pipenv install --dev
 
     - run:
