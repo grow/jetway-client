@@ -44,7 +44,7 @@ class WebReviewTestCase(unittest.TestCase):
 
         # Read.
         paths_read, errors = client.read(list(paths_to_rendered_doc.keys()))
-        for path, content in paths_read.items():
+        for path, content in list(paths_read.items()):
             self.assertEqual(paths_to_rendered_doc[path].content, content)
         self.assertEqual({}, errors)
 

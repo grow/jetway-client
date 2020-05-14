@@ -19,7 +19,7 @@ import os
 import progressbar
 import requests
 import threading
-import urllib
+import urllib.parse
 
 # Google API details for a native/installed application for API project
 # grow-prod.
@@ -385,7 +385,7 @@ class GoogleStorageSigner(object):
 
     @staticmethod
     def create_unsigned_request(verb, path, content=None):
-        path = urllib.quote(path)
+        path = urllib.parse.quote(path)
         req = {
             'path': path,
             'verb': verb,
