@@ -12,19 +12,14 @@ jobs:
         name: Update Pip
         command: |
           apt-get update
-          apt-get install -y --no-install-recommends python python-pip
+          apt-get install -y --no-install-recommends \
+            python3 python3-pip python3-setuptools python3-all-dev python3-dev
 
     - run:
-        name: Install pipenv
-        command: pip install pipenv
-
-    - run:
-        name: Update pipenv
-        command: pipenv update
-
-    - run:
-        name: Install Packages
-        command: pipenv install --dev
+        name: Install and run pipenv
+        command: |
+          pip3 install --upgrade pip virtualenv pipenv
+          pipenv install --dev
 
     - run:
         name: Client Secret
