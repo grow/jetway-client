@@ -270,17 +270,22 @@ class WebReview(object):
             bar.start()
 
         def _execute_request_signing_request(reqs, errs, service, item):
-            batched_paths_to_contents = dict(item)
-            req = self.gs.create_sign_requests_request(
-                verb, self.fileset, batched_paths_to_contents)
             try:
-                resp = service.sign_requests(body=req).execute()
-            except errors.HttpError as e:
-                errs += [(e.resp.status, e._get_reason().strip())]
+                batched_paths_to_contents = dict(item)
+                req = self.gs.create_sign_requests_request(
+                    verb, self.fileset, batched_paths_to_contents)
+
+                try:
+                    resp = service.sign_requests(body=req).execute()
+                except errors.HttpError as e:
+                    errs += [(e.resp.status, e._get_reason().strip())]
+                    return
+                if bar:
+                    bar.update(bar.value + 1)
+                reqs += resp['signed_requests']
+            except Exception as err:
+                errs += [('Error creating signed request', str(err))]
                 return
-            if bar and False:
-                bar.update(bar.value + 1)
-            reqs += resp['signed_requests']
 
         for item in batched_items:
             service = self.get_service()
