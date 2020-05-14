@@ -5,6 +5,9 @@ jobs:
     working_directory: ~/webreview
     docker:
     - image: ubuntu:xenial
+    environment:
+      LC_ALL: C.UTF-8
+      LANG: C.UTF-8
     steps:
     - checkout
 
