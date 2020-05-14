@@ -401,7 +401,8 @@ class GoogleStorageSigner(object):
             else:
                 mimetype = mimetypes.guess_type(path)[0]
                 mimetype = mimetype or 'application/octet-stream'
-            md5_digest = base64.b64encode(hashlib.md5(content).digest())
+            md5_digest = base64.b64encode(
+                hashlib.md5(content.encode('utf-8')).digest()).decode("utf-8")
             req['headers'] = {}
             req['headers']['content_length'] = str(len(content))
             req['headers']['content_md5'] = md5_digest
