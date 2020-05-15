@@ -18,7 +18,9 @@ import multiprocessing
 import os
 import progressbar
 import requests
+import sys
 import threading
+import traceback
 import urllib.parse
 
 # Google API details for a native/installed application for API project
@@ -109,10 +111,11 @@ class HttpWithApiKey(httplib2.Http):
 
 class RpcError(Error):
 
-    def __init__(self, status, message=None, data=None):
+    def __init__(self, status, message=None, data=None, tb=None):
         self.status = status
         self.message = data['error_message'] if data else message
         self.data = data
+        self.tb = tb
 
     def __repr__(self):
         return '{}: {}'.format(self.status, self.message)
@@ -274,18 +277,18 @@ class WebReview(object):
                 batched_paths_to_contents = dict(item)
                 req = self.gs.create_sign_requests_request(
                     verb, self.fileset, batched_paths_to_contents)
-
                 try:
                     resp = service.sign_requests(body=req).execute()
                 except errors.HttpError as e:
-                    errs += [(e.resp.status, e._get_reason().strip())]
+                    errs += [(e.resp.status, e._get_reason().strip(), None)]
                     return
                 if bar:
                     bar.update(bar.value + 1)
                 reqs += resp['signed_requests']
             except Exception as err:
-                errs += [('Error creating signed request', str(err))]
-                return
+                # Return traceback as a list of strings - complex objects fail.
+                tb = traceback.format_tb(err.__traceback__)
+                errs += [('Error creating signed request', str(err), tb)]
 
         for item in batched_items:
             service = self.get_service()
@@ -294,8 +297,8 @@ class WebReview(object):
         self.pool.close()
         self.pool.join()
         if error_objs:
-            status, reason = error_objs[0]
-            raise WebReviewRpcError(status, reason)
+            status, reason, tb = error_objs[0]
+            raise WebReviewRpcError(status, reason, tb=tb)
         if bar:
             bar.finish()
         return signed_requests
@@ -355,8 +358,9 @@ class WebReview(object):
             bar.start()
             for req in signed_requests:
                 path = req['path']
+                path_raw = urllib.parse.unquote(path)
                 args = (req, path, paths_to_rendered_doc[
-                        path].read(), bar, resps, errors)
+                        path_raw].read(), bar, resps, errors)
                 self.pool.apply_async(self._execute, args=args)
             self.pool.close()
             self.pool.join()
@@ -364,8 +368,9 @@ class WebReview(object):
         else:
             req = signed_requests[0]
             path = req['path']
+            path_raw = urllib.parse.unquote(path)
             self._execute(req, path, paths_to_rendered_doc[
-                          path].read(), None, resps, errors)
+                          path_raw].read(), None, resps, errors)
         return resps, errors
 
     @classmethod
@@ -390,9 +395,8 @@ class GoogleStorageSigner(object):
 
     @staticmethod
     def create_unsigned_request(verb, path, content=None):
-        path = urllib.parse.quote(path)
         req = {
-            'path': path,
+            'path': urllib.parse.quote(path),
             'verb': verb,
         }
         if verb == Verb.PUT:
@@ -401,8 +405,16 @@ class GoogleStorageSigner(object):
             else:
                 mimetype = mimetypes.guess_type(path)[0]
                 mimetype = mimetype or 'application/octet-stream'
+            try:
+                content = content.encode('utf-8')
+            except AttributeError:
+                try:
+                    content = content.decode('utf-8')
+                except UnicodeDecodeError:
+                    pass
+
             md5_digest = base64.b64encode(
-                hashlib.md5(content.encode('utf-8')).digest()).decode("utf-8")
+                hashlib.md5(content).digest()).decode("utf-8")
             req['headers'] = {}
             req['headers']['content_length'] = str(len(content))
             req['headers']['content_md5'] = md5_digest
