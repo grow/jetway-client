@@ -41,7 +41,7 @@ test-nosetests:
 upload-pypi:
 	$(MAKE) test
 	. $(PIP_ENV)/bin/activate
-	$(PIP_ENV)/bin/python setup.py sdist bdist_wheel
-	$(PIP_ENV)/bin/pip2 install urllib3[secure] --upgrade
-	$(PIP_ENV)/bin/pip2 install twine --upgrade
+	$(PIP_ENV)/bin/python3 setup.py sdist bdist_wheel
+	$(PIP_ENV)/bin/pip3 install urllib3[secure] --upgrade
+	$(PIP_ENV)/bin/pip3 install twine --upgrade
 	$(PIP_ENV)/bin/twine upload dist/webreview-$(VERSION)*
