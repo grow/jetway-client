@@ -409,7 +409,7 @@ class GoogleStorageSigner(object):
             except AttributeError:
                 try:
                     content = content.decode('utf-8')
-                except UnicodeDecodeError:
+                except AttributeError, UnicodeDecodeError:
                     pass
 
             md5_digest = base64.b64encode(
