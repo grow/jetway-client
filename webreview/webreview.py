@@ -18,7 +18,6 @@ import multiprocessing
 import os
 import progressbar
 import requests
-import sys
 import threading
 import traceback
 import urllib.parse
