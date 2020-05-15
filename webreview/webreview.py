@@ -333,8 +333,8 @@ class WebReview(object):
         resp = None
         try:
             resp = self.gs.execute_signed_request(req, content)
-        except GoogleStorageRpcError as e:
-            error = e
+        except Exception as err:
+            error = err
         with self.lock:
             if resp is not None:
                 resps[path] = resp
@@ -358,8 +358,10 @@ class WebReview(object):
             for req in signed_requests:
                 path = req['path']
                 path_raw = urllib.parse.unquote(path)
-                args = (req, path, paths_to_rendered_doc[
-                        path_raw].read(), bar, resps, errors)
+                content = paths_to_rendered_doc[path_raw].read()
+                if isinstance(content, str):
+                    content = content.encode('utf-8')
+                args = (req, path, content, bar, resps, errors)
                 self.pool.apply_async(self._execute, args=args)
             self.pool.close()
             self.pool.join()
@@ -368,8 +370,10 @@ class WebReview(object):
             req = signed_requests[0]
             path = req['path']
             path_raw = urllib.parse.unquote(path)
-            self._execute(req, path, paths_to_rendered_doc[
-                          path_raw].read(), None, resps, errors)
+            content = paths_to_rendered_doc[path_raw].read()
+            if isinstance(content, str):
+                content = content.encode('utf-8')
+            self._execute(req, path, content, None, resps, errors)
         return resps, errors
 
     @classmethod
@@ -378,12 +382,11 @@ class WebReview(object):
         for pre, _, files in os.walk(build_dir):
             for f in files:
                 path = os.path.join(pre, f)
-                fp = open(path)
-                path = path.replace(build_dir, '')
-                if not path.startswith('/'):
-                    path = '/{}'.format(path)
-                content = fp.read()
-                fp.close()
+                with open(path) as fp:
+                    path = path.replace(build_dir, '')
+                    if not path.startswith('/'):
+                        path = '/{}'.format(path)
+                    content = fp.read()
                 if isinstance(content, str):
                     content = content.encode('utf-8')
                 paths_to_rendered_doc[path] = RenderedDocStub(content=content)
